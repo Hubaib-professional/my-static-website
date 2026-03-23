@@ -1,0 +1,11 @@
+{
+  "name": "static-website",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "jest",
+    "build": "echo 'Building static site...' && mkdir -p build && cp -r * build/"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0"
+  }
+}
