@@ -1,0 +1,87 @@
+name: Deploy with Rollback
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write  # Required for creating tags
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Get current version
+        id: version
+        run: |
+          # Get latest tag or default to v1.0.0
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v1.0.0")
+          echo "current_version=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "Current version: $LATEST_TAG"
+      
+      - name: Create new version
+        id: new_version
+        run: |
+          # Increment version
+          OLD_VERSION=${{ steps.version.outputs.current_version }}
+          NEW_VERSION=$(echo $OLD_VERSION | awk -F. '{print $1"."$2"."$3+1}')
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION"
+      
+      - name: Build and deploy
+        id: deploy
+        run: |
+          echo "📦 Building version: ${{ steps.new_version.outputs.new_version }}"
+          mkdir -p dist
+          echo "<h1>Version: ${{ steps.new_version.outputs.new_version }}</h1>" > dist/index.html
+          
+          # Simulate deployment
+          echo "Deploying to production..."
+          sleep 5
+          
+          # Simulate a failure (remove this in real scenario)
+          # echo "Deployment failed!" && exit 1
+          
+          echo "deployment_success=true" >> $GITHUB_OUTPUT
+      
+      - name: Create version tag (on success)
+        if: steps.deploy.outputs.deployment_success == 'true'
+        run: |
+          git tag ${{ steps.new_version.outputs.new_version }}
+          git push origin ${{ steps.new_version.outputs.new_version }}
+          echo "✅ Version ${{ steps.new_version.outputs.new_version }} deployed successfully"
+      
+      - name: Automatic Rollback (on failure)
+        if: steps.deploy.outputs.deployment_success != 'true'
+        run: |
+          echo "❌ Deployment failed! Initiating rollback..."
+          PREVIOUS_VERSION=${{ steps.version.outputs.current_version }}
+          echo "🔄 Rolling back to $PREVIOUS_VERSION"
+          
+          # Simulate rollback
+          mkdir -p dist
+          echo "<h1>Rollback to $PREVIOUS_VERSION</h1>" > dist/index.html
+          
+          echo "✅ Rollback complete. Site restored to $PREVIOUS_VERSION"
+      
+      - name: Send alert on failure
+        if: failure()
+        run: |
+          echo "🚨 ALERT: Production deployment failed!"
+          echo "Manual intervention required"
+          # In real scenario: Send to Slack, PagerDuty, etc.
+
+  health-check:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Verify deployment health
+        run: |
+          echo "🏥 Performing health check..."
+          # Simulate health check
+          sleep 3
+          echo "✅ Health check passed"

@@ -1,0 +1,124 @@
+name: Multi-Environment Deployment
+
+on:
+  push:
+    branches: [ develop, staging, main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+
+# Environment-specific configurations
+env:
+  DEVELOPMENT_URL: dev.multinet.com
+  STAGING_URL: staging.multinet.com
+  PRODUCTION_URL: multinet.com
+
+jobs:
+  # Build once, deploy to multiple environments
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build website
+        run: |
+          mkdir -p dist
+          echo "<h1>Multinet - Environment: ${{ github.ref_name }}</h1>" > dist/index.html
+          echo "<p>Build time: $(date)</p>" >> dist/index.html
+      
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: website-build
+          path: dist/
+          retention-days: 7
+
+  # Development deployment (auto on develop branch)
+  deploy-development:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref_name == 'develop' || github.event.inputs.environment == 'development'
+    environment:
+      name: development
+      url: ${{ env.DEVELOPMENT_URL }}
+    steps:
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: website-build
+          path: dist/
+      
+      - name: Deploy to Development
+        run: |
+          echo "🚀 Deploying to Development: ${{ env.DEVELOPMENT_URL }}"
+          # In real scenario: rsync to dev server or S3 bucket
+          # For practice: Simulate deployment
+          echo "Deployment complete to development environment"
+      
+      - name: Run health check
+        run: |
+          echo "✅ Health check passed for development"
+
+  # Staging deployment (auto on staging branch)
+  deploy-staging:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref_name == 'staging' || github.event.inputs.environment == 'staging'
+    environment:
+      name: staging
+      url: ${{ env.STAGING_URL }}
+    steps:
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: website-build
+          path: dist/
+      
+      - name: Deploy to Staging
+        run: |
+          echo "🚀 Deploying to Staging: ${{ env.STAGING_URL }}"
+          echo "Deployment complete to staging environment"
+      
+      - name: Run integration tests
+        run: |
+          echo "🧪 Running integration tests..."
+          # Simulate tests
+          echo "✅ All tests passed"
+
+  # Production deployment (manual approval required)
+  deploy-production:
+    needs: [deploy-staging]
+    runs-on: ubuntu-latest
+    if: github.ref_name == 'main' || github.event.inputs.environment == 'production'
+    environment:
+      name: production
+      url: ${{ env.PRODUCTION_URL }}
+      # This requires manual approval in GitHub UI
+    steps:
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: website-build
+          path: dist/
+      
+      - name: Deploy to Production
+        run: |
+          echo "🚀 Deploying to Production: ${{ env.PRODUCTION_URL }}"
+          echo "Deployment complete to production environment"
+      
+      - name: Post-deployment validation
+        run: |
+          echo "🔍 Validating production deployment..."
+          # Simulate smoke tests
+          echo "✅ Production validation passed"
+      
+      - name: Send deployment notification
+        run: |
+          echo "📧 Deployment notification sent to team"
